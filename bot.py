@@ -18,13 +18,19 @@ import db
 # SYSTEM INFO
 # =====================
 def get_ip():
-    return socket.gethostbyname(socket.gethostname())
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except:
+        return "127.0.0.1"
+
 
 def get_cpu():
     return psutil.cpu_percent(interval=1)
 
+
 def get_ram():
     return psutil.virtual_memory().percent
+
 
 def get_disk():
     return psutil.disk_usage('/').percent
@@ -34,14 +40,15 @@ def get_disk():
 # START
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     keyboard = [
         [InlineKeyboardButton("📊 STATUS", callback_data="status")],
         [InlineKeyboardButton("👤 USERS", callback_data="users")],
-        [InlineKeyboardButton("📋 CMD", callback_data="cmds")],
+        [InlineKeyboardButton("📋 CMDS", callback_data="cmds")],
     ]
 
     await update.message.reply_text(
-        "🚀 CHOMELO SaaS ONLINE",
+        "🚀 CHOMELO SaaS ONLINE\n\nSistema activo correctamente",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
@@ -50,38 +57,49 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # CREATE USER
 # =====================
 async def create(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     if update.effective_user.id != ADMIN_ID:
         return await update.message.reply_text("⛔ No autorizado")
 
     try:
         user = context.args[0]
         password = context.args[1]
-        expire_days = int(context.args[2])
+        days = int(context.args[2])
 
-        expire = (datetime.now() + timedelta(days=expire_days)).isoformat()
+        expire = (datetime.now() + timedelta(days=days)).isoformat()
 
         db.create_user(user, password, expire)
 
         await update.message.reply_text(
-            f"✅ USER CREADO\n\n👤 {user}\n📅 Expira en: {expire_days} días"
+            f"✅ USER CREADO\n\n"
+            f"👤 Usuario: {user}\n"
+            f"🔑 Password: {password}\n"
+            f"📅 Expira en: {days} días"
         )
 
-    except:
-        await update.message.reply_text("❌ Uso: /create user pass dias")
+    except Exception as e:
+        await update.message.reply_text(
+            "❌ Uso incorrecto\n\n/create user pass dias"
+        )
 
 
 # =====================
 # LIST USERS
 # =====================
 async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     if update.effective_user.id != ADMIN_ID:
         return await update.message.reply_text("⛔ No autorizado")
 
     rows = db.get_users()
 
+    if not rows:
+        return await update.message.reply_text("📭 No hay usuarios")
+
     msg = "👤 USERS:\n\n"
+
     for u in rows:
-        msg += f"{u[0]} | {u[1]} | {u[2]}\n"
+        msg += f"👤 {u[0]} | 🔑 {u[1]} | 📅 {u[2]}\n"
 
     await update.message.reply_text(msg)
 
@@ -90,55 +108,70 @@ async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # STATUS VPS
 # =====================
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = f"""
-🖥 CHOMELO VPS STATUS
 
-🌐 IP: {get_ip()}
-⚙️ CPU: {get_cpu()}%
-🧠 RAM: {get_ram()}%
-💾 DISK: {get_disk()}%
-"""
+    msg = (
+        "🖥 CHOMELO VPS STATUS\n\n"
+        f"🌐 IP: {get_ip()}\n"
+        f"⚙️ CPU: {get_cpu()}%\n"
+        f"🧠 RAM: {get_ram()}%\n"
+        f"💾 DISK: {get_disk()}%\n\n"
+        "✔ Sistema estable"
+    )
 
-    await update.message.reply_text(text)
+    await update.message.reply_text(msg)
 
 
 # =====================
 # BUTTONS
 # =====================
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
 
-    if q.data == "status":
-        await q.edit_message_text(
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "status":
+        await query.edit_message_text(
             f"""🖥 STATUS
 
-IP: {get_ip()}
-CPU: {get_cpu()}%
-RAM: {get_ram()}%
-DISK: {get_disk()}%"""
+🌐 IP: {get_ip()}
+⚙️ CPU: {get_cpu()}%
+🧠 RAM: {get_ram()}%
+💾 DISK: {get_disk()}%"""
         )
 
-    if q.data == "users":
+    elif query.data == "users":
+
         rows = db.get_users()
+
+        if not rows:
+            await query.edit_message_text("📭 No hay usuarios")
+            return
+
         msg = "👤 USERS:\n\n"
+
         for u in rows:
-            msg += f"{u[0]} | {u[1]} | {u[2]}\n"
+            msg += f"👤 {u[0]} | 🔑 {u[1]} | 📅 {u[2]}\n"
 
-        await q.edit_message_text(msg)
+        await query.edit_message_text(msg)
 
-    if q.data == "cmds":
-        await q.edit_message_text(
-            "/start\n/create\n/users\n/status"
+    elif query.data == "cmds":
+
+        await query.edit_message_text(
+            "/start - iniciar\n"
+            "/create user pass days\n"
+            "/users - listar usuarios\n"
+            "/status - estado VPS"
         )
 
 
 # =====================
-# BUILD BOT (FIX PRINCIPAL)
+# BUILD BOT (PRO STABLE)
 # =====================
 def build_bot():
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("create", create))
     app.add_handler(CommandHandler("users", users))
