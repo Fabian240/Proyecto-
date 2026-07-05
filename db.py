@@ -1,11 +1,24 @@
-users = []
+import sqlite3
 
-def create_user(user, password, expire):
-    users.append({
-        "user": user,
-        "password": password,
-        "expire": expire
-    })
+conn = sqlite3.connect("users.db", check_same_thread=False)
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT,
+    password TEXT,
+    expire TEXT
+)
+""")
+conn.commit()
+
+def create_user(username, password, expire):
+    cursor.execute(
+        "INSERT INTO users VALUES (?, ?, ?)",
+        (username, password, expire),
+    )
+    conn.commit()
 
 def get_users():
-    return users
+    cursor.execute("SELECT * FROM users")
+    return cursor.fetchall()
