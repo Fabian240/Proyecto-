@@ -94,5 +94,6 @@ def build_bot():
     app.add_handler(CommandHandler("create", create))
     app.add_handler(CommandHandler("users", users))
     app.add_handler(CallbackQueryHandler(buttons))
-
+    
+app.add_handler(CommandHandler("status", status))
     return app
