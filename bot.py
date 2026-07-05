@@ -1,5 +1,6 @@
 import psutil
 import socket
+import logging
 from datetime import datetime, timedelta
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,7 +11,13 @@ import db
 
 
 # =====================
-# SYSTEM INFO
+# LOGGING PRO
+# =====================
+logging.basicConfig(level=logging.INFO)
+
+
+# =====================
+# SYSTEM INFO VPS
 # =====================
 def get_ip():
     try:
@@ -18,42 +25,40 @@ def get_ip():
     except:
         return "127.0.0.1"
 
-
 def get_cpu():
     return psutil.cpu_percent(interval=0.5)
 
-
 def get_ram():
     return psutil.virtual_memory().percent
-
 
 def get_disk():
     return psutil.disk_usage('/').percent
 
 
 # =====================
-# PANEL
+# PANEL PRINCIPAL
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
-        [InlineKeyboardButton("📊 STATUS", callback_data="status")],
+        [InlineKeyboardButton("📊 STATUS VPS", callback_data="status")],
         [InlineKeyboardButton("👤 USERS", callback_data="users")],
         [InlineKeyboardButton("➕ CREATE", callback_data="create")],
-        [InlineKeyboardButton("🟢 ACTIVE", callback_data="active")],
-        [InlineKeyboardButton("⛔ SUSPEND", callback_data="suspend")],
-        [InlineKeyboardButton("🗑 DELETE", callback_data="delete")],
+        [InlineKeyboardButton("🟢 ACTIVE USERS", callback_data="active")],
+        [InlineKeyboardButton("⛔ SUSPEND USER", callback_data="suspend")],
+        [InlineKeyboardButton("🗑 DELETE USER", callback_data="delete")],
         [InlineKeyboardButton("🔄 REFRESH", callback_data="refresh")],
+        [InlineKeyboardButton("🧪 DEBUG", callback_data="debug")],
     ]
 
     await update.message.reply_text(
-        "🚀 SAAS HOSTING PANEL PRO",
+        "🚀 CHOMELO SAAS ULTRA PANEL",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
 # =====================
-# CREATE USER
+# CREATE USER (CMD)
 # =====================
 async def create(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -69,23 +74,23 @@ async def create(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         db.create_user(user, password, expire)
 
-        await update.message.reply_text(f"✅ USER CREADO: {user}")
+        await update.message.reply_text(f"✅ USER CREATED: {user}")
 
-    except:
-        await update.message.reply_text("Uso: /create user pass days")
+    except Exception as e:
+        await update.message.reply_text(f"CREATE ERROR: {e}")
 
 
 # =====================
-# USERS
+# USERS LIST
 # =====================
 async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     rows = db.get_users()
 
     if not rows:
-        return await update.message.reply_text("📭 No users")
+        return await update.message.reply_text("📭 NO USERS")
 
-    msg = "👤 USERS:\n\n"
+    msg = "👤 USERS LIST:\n\n"
 
     for u in rows:
         msg += f"{u[0]} | {u[1]} | {u[2]} | {u[3]}\n"
@@ -111,7 +116,27 @@ DISK: {get_disk()}%
 
 
 # =====================
-# BUTTONS (SAAS CORE)
+# DEBUG PANEL (NUEVO)
+# =====================
+async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    import os
+
+    msg = f"""
+🧪 DEBUG SYSTEM
+
+PID: {os.getpid()}
+CPU: {get_cpu()}%
+RAM: {get_ram()}%
+DISK: {get_disk()}%
+TIME: {datetime.now()}
+"""
+
+    await update.message.reply_text(msg)
+
+
+# =====================
+# CALLBACK BUTTONS (ULTRA PANEL)
 # =====================
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -120,11 +145,13 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = q.data
 
+    print("BUTTON CLICKED:", data)
+
 
     # ---------------- STATUS
     if data == "status":
         await q.edit_message_text(
-            f"""🖥 STATUS
+            f"""🖥 STATUS VPS
 
 IP: {get_ip()}
 CPU: {get_cpu()}%
@@ -135,20 +162,24 @@ DISK: {get_disk()}%"""
 
     # ---------------- USERS
     elif data == "users":
+
         rows = db.get_users()
 
         msg = "👤 USERS:\n\n"
+
         for u in rows:
             msg += f"{u[0]} | {u[1]} | {u[2]} | {u[3]}\n"
 
         await q.edit_message_text(msg)
 
 
-    # ---------------- ACTIVE
+    # ---------------- ACTIVE USERS
     elif data == "active":
+
         rows = db.get_users()
 
         msg = "🟢 ACTIVE USERS:\n\n"
+
         for u in rows:
             if u[3] == "ACTIVE":
                 msg += f"{u[0]} | {u[2]}\n"
@@ -156,32 +187,37 @@ DISK: {get_disk()}%"""
         await q.edit_message_text(msg)
 
 
-    # ---------------- SUSPEND (SIMULADO PANEL)
+    # ---------------- SUSPEND (SIMULADO PRO)
     elif data == "suspend":
         await q.edit_message_text(
-            "⛔ Usa: /suspend user\n(Siguiente upgrade lo automatizo)"
+            "⛔ USE:\n/suspend username\n\n(Upgrade DB para acción real)"
         )
 
 
-    # ---------------- DELETE (SIMULADO PANEL)
+    # ---------------- DELETE (SIMULADO PRO)
     elif data == "delete":
         await q.edit_message_text(
-            "🗑 Usa: /delete user\n(Siguiente upgrade lo automatizo)"
+            "🗑 USE:\n/delete username\n\n(Upgrade DB para acción real)"
         )
 
 
-    # ---------------- CREATE MENU
+    # ---------------- CREATE INFO
     elif data == "create":
-        await q.edit_message_text("➕ Usa:\n/create user pass days")
+        await q.edit_message_text("➕ USE:\n/create user pass days")
 
 
     # ---------------- REFRESH
     elif data == "refresh":
-        await q.edit_message_text("🔄 Panel actualizado")
+        await q.edit_message_text("🔄 PANEL REFRESHED ✔")
+
+
+    # ---------------- DEBUG
+    elif data == "debug":
+        await q.edit_message_text("🧪 DEBUG ACTIVE ✔")
 
 
 # =====================
-# BUILD BOT
+# BUILD BOT (FINAL FIXED)
 # =====================
 def build_bot():
 
@@ -191,7 +227,9 @@ def build_bot():
     app.add_handler(CommandHandler("create", create))
     app.add_handler(CommandHandler("users", users))
     app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("debug", debug))
 
-    app.add_handler(CallbackQueryHandler(buttons))
+    # 🔥 IMPORTANT FIX PARA BOTONES
+    app.add_handler(CallbackQueryHandler(buttons, pattern=".*"))
 
     return app
