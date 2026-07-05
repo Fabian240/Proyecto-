@@ -1,6 +1,5 @@
 import threading
 import uvicorn
-
 from bot import build_bot
 from api import app
 
