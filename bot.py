@@ -1,235 +1,225 @@
 import psutil
 import socket
-import logging
+import random
+import string
 from datetime import datetime, timedelta
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 from config import BOT_TOKEN, ADMIN_ID
 import db
 
 
 # =====================
-# LOGGING PRO
+# STATES CREATE FLOW
 # =====================
-logging.basicConfig(level=logging.INFO)
+USERNAME, PASSWORD, DAYS = range(3)
 
 
 # =====================
-# SYSTEM INFO VPS
+# SYSTEM INFO
 # =====================
 def get_ip():
-    try:
-        return socket.gethostbyname(socket.gethostname())
-    except:
-        return "127.0.0.1"
+    return socket.gethostbyname(socket.gethostname())
 
-def get_cpu():
-    return psutil.cpu_percent(interval=0.5)
-
-def get_ram():
-    return psutil.virtual_memory().percent
-
-def get_disk():
-    return psutil.disk_usage('/').percent
+def gen_pass(length=6):
+    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
 
 
 # =====================
-# PANEL PRINCIPAL
+# MENU PRINCIPAL
+# =====================
+def main_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📊 STATUS", callback_data="status")],
+        [InlineKeyboardButton("👤 USERS", callback_data="users")],
+        [InlineKeyboardButton("➕ CREATE USER", callback_data="create")],
+        [InlineKeyboardButton("🗑 DELETE USER", callback_data="delete")],
+        [InlineKeyboardButton("📡 ACTIVE", callback_data="active")],
+        [InlineKeyboardButton("🔄 REFRESH", callback_data="refresh")],
+    ])
+
+
+# =====================
+# START
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    keyboard = [
-        [InlineKeyboardButton("📊 STATUS VPS", callback_data="status")],
-        [InlineKeyboardButton("👤 USERS", callback_data="users")],
-        [InlineKeyboardButton("➕ CREATE", callback_data="create")],
-        [InlineKeyboardButton("🟢 ACTIVE USERS", callback_data="active")],
-        [InlineKeyboardButton("⛔ SUSPEND USER", callback_data="suspend")],
-        [InlineKeyboardButton("🗑 DELETE USER", callback_data="delete")],
-        [InlineKeyboardButton("🔄 REFRESH", callback_data="refresh")],
-        [InlineKeyboardButton("🧪 DEBUG", callback_data="debug")],
-    ]
-
     await update.message.reply_text(
-        "🚀 CHOMELO SAAS ULTRA PANEL",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        "🔥 SAAS HOSTING PANEL ONLINE",
+        reply_markup=main_menu()
     )
 
 
 # =====================
-# CREATE USER (CMD)
-# =====================
-async def create(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    try:
-        if update.effective_user.id != ADMIN_ID:
-            return await update.message.reply_text("⛔ No autorizado")
-
-        user = context.args[0]
-        password = context.args[1]
-        days = int(context.args[2])
-
-        expire = (datetime.now() + timedelta(days=days)).isoformat()
-
-        db.create_user(user, password, expire)
-
-        await update.message.reply_text(f"✅ USER CREATED: {user}")
-
-    except Exception as e:
-        await update.message.reply_text(f"CREATE ERROR: {e}")
-
-
-# =====================
-# USERS LIST
-# =====================
-async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    rows = db.get_users()
-
-    if not rows:
-        return await update.message.reply_text("📭 NO USERS")
-
-    msg = "👤 USERS LIST:\n\n"
-
-    for u in rows:
-        msg += f"{u[0]} | {u[1]} | {u[2]} | {u[3]}\n"
-
-    await update.message.reply_text(msg)
-
-
-# =====================
-# STATUS VPS
-# =====================
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    msg = f"""
-🖥 VPS STATUS
-
-IP: {get_ip()}
-CPU: {get_cpu()}%
-RAM: {get_ram()}%
-DISK: {get_disk()}%
-"""
-
-    await update.message.reply_text(msg)
-
-
-# =====================
-# DEBUG PANEL (NUEVO)
-# =====================
-async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    import os
-
-    msg = f"""
-🧪 DEBUG SYSTEM
-
-PID: {os.getpid()}
-CPU: {get_cpu()}%
-RAM: {get_ram()}%
-DISK: {get_disk()}%
-TIME: {datetime.now()}
-"""
-
-    await update.message.reply_text(msg)
-
-
-# =====================
-# CALLBACK BUTTONS (ULTRA PANEL)
+# CALLBACKS PRINCIPALES
 # =====================
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     q = update.callback_query
+    data = q.data
     await q.answer()
 
-    data = q.data
-
-    print("BUTTON CLICKED:", data)
-
-
-    # ---------------- STATUS
+    # STATUS
     if data == "status":
         await q.edit_message_text(
-            f"""🖥 STATUS VPS
+            f"""🖥 VPS STATUS
 
-IP: {get_ip()}
-CPU: {get_cpu()}%
-RAM: {get_ram()}%
-DISK: {get_disk()}%"""
+🌐 IP: {get_ip()}
+⚙️ CPU: {psutil.cpu_percent()}%
+🧠 RAM: {psutil.virtual_memory().percent}%""",
+            reply_markup=main_menu()
         )
 
-
-    # ---------------- USERS
+    # USERS
     elif data == "users":
-
         rows = db.get_users()
 
-        msg = "👤 USERS:\n\n"
-
+        msg = "👤 USERS\n\n"
         for u in rows:
-            msg += f"{u[0]} | {u[1]} | {u[2]} | {u[3]}\n"
+            msg += f"{u[0]} | {u[1]} | {u[2]}\n"
 
-        await q.edit_message_text(msg)
+        await q.edit_message_text(msg, reply_markup=main_menu())
 
-
-    # ---------------- ACTIVE USERS
-    elif data == "active":
-
-        rows = db.get_users()
-
-        msg = "🟢 ACTIVE USERS:\n\n"
-
-        for u in rows:
-            if u[3] == "ACTIVE":
-                msg += f"{u[0]} | {u[2]}\n"
-
-        await q.edit_message_text(msg)
-
-
-    # ---------------- SUSPEND (SIMULADO PRO)
-    elif data == "suspend":
-        await q.edit_message_text(
-            "⛔ USE:\n/suspend username\n\n(Upgrade DB para acción real)"
-        )
-
-
-    # ---------------- DELETE (SIMULADO PRO)
-    elif data == "delete":
-        await q.edit_message_text(
-            "🗑 USE:\n/delete username\n\n(Upgrade DB para acción real)"
-        )
-
-
-    # ---------------- CREATE INFO
+    # CREATE FLOW START
     elif data == "create":
-        await q.edit_message_text("➕ USE:\n/create user pass days")
+        await q.edit_message_text("👤 Envía USERNAME:")
+        return USERNAME
 
+    # DELETE MENU
+    elif data == "delete":
+        rows = db.get_users()
 
-    # ---------------- REFRESH
+        keyboard = [
+            [InlineKeyboardButton(f"❌ {u[0]}", callback_data=f"del_{u[0]}")]
+            for u in rows
+        ]
+
+        keyboard.append([InlineKeyboardButton("⬅ BACK", callback_data="back")])
+
+        await q.edit_message_text(
+            "🗑 SELECT USER TO DELETE:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    # DELETE ACTION
+    elif data.startswith("del_"):
+        user = data.replace("del_", "")
+        db.delete_user(user)
+
+        await q.edit_message_text("🗑 USER DELETED", reply_markup=main_menu())
+
+    # ACTIVE USERS
+    elif data == "active":
+        rows = db.get_users()
+        now = datetime.now()
+
+        active = 0
+        for u in rows:
+            try:
+                if datetime.fromisoformat(u[2]) > now:
+                    active += 1
+            except:
+                pass
+
+        await q.edit_message_text(f"📡 ACTIVE USERS: {active}", reply_markup=main_menu())
+
+    # REFRESH
     elif data == "refresh":
-        await q.edit_message_text("🔄 PANEL REFRESHED ✔")
+        await q.edit_message_text("🔄 UPDATED", reply_markup=main_menu())
 
-
-    # ---------------- DEBUG
-    elif data == "debug":
-        await q.edit_message_text("🧪 DEBUG ACTIVE ✔")
+    # BACK
+    elif data == "back":
+        await q.edit_message_text("🏠 MAIN MENU", reply_markup=main_menu())
 
 
 # =====================
-# BUILD BOT (FINAL FIXED)
+# CREATE FLOW (FIX REAL)
+# =====================
+async def create_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["username"] = update.message.text
+
+    await update.message.reply_text("🔑 PASSWORD (o escribe AUTO):")
+    return PASSWORD
+
+
+async def create_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pwd = update.message.text
+
+    if pwd.lower() == "auto":
+        pwd = gen_pass()
+
+    context.user_data["password"] = pwd
+
+    await update.message.reply_text("⏳ DIAS DE EXPIRACIÓN:")
+    return DAYS
+
+
+async def create_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        days = int(update.message.text)
+
+        user = context.user_data["username"]
+        password = context.user_data["password"]
+
+        expiry = (datetime.now() + timedelta(days=days)).isoformat()
+
+        db.create_user(user, password, expiry)
+
+        await update.message.reply_text(
+            f"""✅ USER CREATED
+
+👤 USER: {user}
+🔑 PASS: {password}
+⏳ EXP: {days} days
+🌐 VPS IP: {get_ip()}"""
+        )
+
+        return ConversationHandler.END
+
+    except:
+        await update.message.reply_text("❌ INVALID NUMBER")
+        return DAYS
+
+
+# =====================
+# CANCEL
+# =====================
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("❌ CANCELLED")
+    return ConversationHandler.END
+
+
+# =====================
+# BUILD BOT (FIX FINAL)
 # =====================
 def build_bot():
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("create", create))
-    app.add_handler(CommandHandler("users", users))
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("debug", debug))
+    # CALLBACKS
+    app.add_handler(CallbackQueryHandler(buttons))
 
-    # 🔥 IMPORTANT FIX PARA BOTONES
-    app.add_handler(CallbackQueryHandler(buttons, pattern=".*"))
+    # CREATE FLOW CORRECTO
+    conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(buttons, pattern="^create$")],
+        states={
+            USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_username)],
+            PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_password)],
+            DAYS: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_days)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    app.add_handler(conv)
+
+    # START
+    app.add_handler(CommandHandler("start", start))
 
     return app
